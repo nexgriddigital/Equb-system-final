@@ -1,23 +1,23 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "Equb Draw",
   "short_name": "Equb",
   "description": "Fair lottery and ledger tool for Ethiopian Equb groups",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0E3B2E",
   "background_color": "#0E3B2E",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
