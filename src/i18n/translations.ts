@@ -33,6 +33,8 @@ export interface TranslationDictionary {
   loginErrorWrongPassword: string;
   loginErrorEmailInUse: string;
   loginErrorWeakPassword: string;
+  loginErrorOperationNotAllowed: string;
+  loginErrorNetwork: string;
   loginErrorGeneric: string;
   logoutBtn: string;
   deleteAccountBtn: string;
@@ -340,7 +342,9 @@ export const translations: Record<Language, TranslationDictionary> = {
     loginErrorWrongPassword: 'Incorrect password.',
     loginErrorEmailInUse: 'An account with this email already exists.',
     loginErrorWeakPassword: 'Password should be at least 6 characters.',
-    loginErrorGeneric: 'Authentication error. Please check your network and try again.',
+    loginErrorOperationNotAllowed: 'Email/Password sign-up is not yet enabled in the Firebase Console. Use "Continue with Google" below, or enable Email/Password provider in your Firebase project.',
+    loginErrorNetwork: 'Network connection failed. Please check your internet connection.',
+    loginErrorGeneric: 'Authentication error. Please check your credentials or use Google sign-in.',
     logoutBtn: 'Log Out',
     deleteAccountBtn: 'Delete My Account',
     deleteAccountConfirm: 'Are you sure you want to permanently delete your account? This action cannot be undone.',
@@ -641,7 +645,9 @@ export const translations: Record<Language, TranslationDictionary> = {
     loginErrorWrongPassword: 'የይለፍ ቃሉ የተሳሳተ ነው።',
     loginErrorEmailInUse: 'ይህ ኢሜይል አስቀድሞ ተመዝግቧል።',
     loginErrorWeakPassword: 'የይለፍ ቃሉ ቢያንስ 6 ፊደላት ወይም ቁጥሮች መሆን አለበት።',
-    loginErrorGeneric: 'የመግቢያ ስህተት አጋጥሟል። እባክዎ የበይነመረብ ግንኙነትዎን ፈትሸው እንደገና ይሞክሩ።',
+    loginErrorOperationNotAllowed: 'የኢሜይል/የይለፍ ቃል ምዝገባ በFirebase አልነቃም። እባክዎ ከታች "በ Google ቀጥል" የሚለውን ይጠቀሙ ወይም በFirebase Console ውስጥ ያብሩት።',
+    loginErrorNetwork: 'የበይነመረብ ግንኙነት ተቋርጧል። እባክዎ የበይነመረብ ግንኙነትዎን ፈትሸው እንደገና ይሞክሩ።',
+    loginErrorGeneric: 'የመግቢያ ስህተት አጋጥሟል። እባክዎ መረጃዎን ያረጋግጡ ወይም በGoogle ይግቡ።',
     logoutBtn: 'ውጣ',
     deleteAccountBtn: 'መለያዬን ሰርዝ',
     deleteAccountConfirm: 'እርግጠኛ ነዎት መለያዎን በቋሚነት መሰረዝ ይፈልጋሉ? ይህ እርምጃ ሊመለስ አይችልም።',

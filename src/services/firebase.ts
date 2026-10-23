@@ -127,7 +127,7 @@ export async function syncUserProfile(user: User, preferredLanguage?: Language) 
       await updateDoc(userRef, { language: preferredLanguage });
     }
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
+    console.warn('Could not sync user profile to Firestore (non-fatal):', err);
   }
 }
 
