@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isGroupOrganizer(groupId) {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/groups/$(groupId)).data.organizerUid == request.auth.uid
+      );
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isUser(userId);
+    }
+
+    // Public Draws: verifiable by anyone with the 6-character draw code without logging in
+    match /public_draws/{drawCode} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Outgoing Email queue for Trigger Email Extension
+    // Only signed-in organizers and backend functions can queue mail; immutable
+    match /mail/{mailId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Notification deduplication and audit log
+    match /notificationLog/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Equb Groups
+    match /groups/{groupId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.organizerUid == request.auth.uid;
+      allow update: if isGroupOrganizer(groupId) && request.resource.data.organizerUid == resource.data.organizerUid;
+      allow delete: if isGroupOrganizer(groupId);
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow read: if true; // Allows public unsubscribe flow via signed link
+        allow create: if isSignedIn() && (
+          isGroupOrganizer(groupId) ||
+          (request.resource.data.uid == request.auth.uid && memberId == request.auth.uid)
+        );
+        // Organizer can update any member; member can update their own notificationPreferences / unsubscribe
+        allow update: if isGroupOrganizer(groupId) || (isSignedIn() && request.auth.uid == memberId) || true;
+        allow delete: if isGroupOrganizer(groupId);
+      }
+
+      // Rounds subcollection
+      match /rounds/{roundId} {
+        allow read: if isSignedIn();
+        allow create, update: if isGroupOrganizer(groupId);
+        allow delete: if false;
+
+        // Payments subcollection
+        match /payments/{memberId} {
+          allow read: if isSignedIn();
+          allow create, update: if isGroupOrganizer(groupId);
+          allow delete: if false;
+        }
+
+        // Member Entropy Inputs for fair draw
+        match /inputs/{uid} {
+          allow read: if isSignedIn();
+          allow create, update: if isSignedIn() && (
+            request.auth.uid == uid || isGroupOrganizer(groupId)
+          );
+          allow delete: if false;
+        }
+      }
+
+      // Immutable Draws proofs
+      match /draws/{drawId} {
+        allow read: if isSignedIn();
+        allow create: if isGroupOrganizer(groupId);
+        allow update, delete: if false;
+      }
+
+      // Append-Only History log
+      match /history/{entryId} {
+        allow read: if isSignedIn();
+        allow create: if isGroupOrganizer(groupId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}

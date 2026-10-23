@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with display name and language preference",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "language": { "type": "string", "enum": ["am", "en"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["displayName", "language"]
+    },
+    "EqubGroup": {
+      "title": "EqubGroup",
+      "description": "Rotating savings group definition and current cycle state",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 120 },
+        "organizerUid": { "type": "string", "maxLength": 128 },
+        "contributionAmount": { "type": "number" },
+        "interval": { "type": "string", "enum": ["weekly", "biweekly", "monthly"] },
+        "startDate": { "type": "string", "maxLength": 50 },
+        "inviteCode": { "type": "string", "maxLength": 10 },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "currentRound": { "type": "number" },
+        "emailSettings": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["name", "organizerUid", "contributionAmount", "interval", "inviteCode", "status", "currentRound"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "Member inside an Equb group with share count, role, and email preferences",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "shares": { "type": "number", "enum": [1, 2] },
+        "role": { "type": "string", "enum": ["organizer", "member"] },
+        "notificationPreferences": { "type": "object" },
+        "joinedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["displayName", "shares", "role"]
+    },
+    "Round": {
+      "title": "Round",
+      "description": "Equb draw period and pot amount",
+      "type": "object",
+      "properties": {
+        "roundNumber": { "type": "number" },
+        "date": { "type": "string", "maxLength": 50 },
+        "potAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed"] }
+      },
+      "required": ["roundNumber", "potAmount", "status"]
+    },
+    "PaymentStatus": {
+      "title": "PaymentStatus",
+      "description": "Record of contribution payment status for a member in a round",
+      "type": "object",
+      "properties": {
+        "paid": { "type": "boolean" },
+        "markedBy": { "type": "string", "maxLength": 128 },
+        "markedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["paid", "markedBy"]
+    },
+    "MemberDrawInput": {
+      "title": "MemberDrawInput",
+      "description": "Random entropy word or number submitted by a member for the fair draw",
+      "type": "object",
+      "properties": {
+        "input": { "type": "string", "maxLength": 60 },
+        "memberName": { "type": "string", "maxLength": 100 },
+        "submittedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["input", "memberName"]
+    },
+    "DrawRecord": {
+      "title": "DrawRecord",
+      "description": "Cryptographically verifiable draw record and winner determination",
+      "type": "object",
+      "properties": {
+        "roundNumber": { "type": "number" },
+        "drawCode": { "type": "string", "maxLength": 10 },
+        "eligibleList": { "type": "string", "maxLength": 5000 },
+        "commitmentHash": { "type": "string", "maxLength": 128 },
+        "inputs": { "type": "string", "maxLength": 5000 },
+        "seed": { "type": "string", "maxLength": 128 },
+        "winnerMemberId": { "type": "string", "maxLength": 128 },
+        "winnerMemberName": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["lottery", "group_decision", "swap"] },
+        "note": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["roundNumber", "commitmentHash", "seed", "winnerMemberId", "winnerMemberName", "type"]
+    },
+    "PublicDraw": {
+      "title": "PublicDraw",
+      "description": "Public non-sensitive verification record accessible via 6-character draw code without logging in",
+      "type": "object",
+      "properties": {
+        "drawCode": { "type": "string", "maxLength": 10 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "groupName": { "type": "string", "maxLength": 120 },
+        "roundNumber": { "type": "number" },
+        "winnerName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 50 },
+        "potAmount": { "type": "number" },
+        "type": { "type": "string", "maxLength": 30 },
+        "eligibleNames": { "type": "string", "maxLength": 4000 },
+        "proofJson": { "type": "string", "maxLength": 6000 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["drawCode", "roundNumber", "winnerName", "proofJson"]
+    },
+    "MailMessage": {
+      "title": "MailMessage",
+      "description": "Trigger Email extension outgoing queue document",
+      "type": "object",
+      "properties": {
+        "to": { "type": "string", "maxLength": 150 },
+        "message": { "type": "object" },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["to", "message"]
+    },
+    "NotificationLogEntry": {
+      "title": "NotificationLogEntry",
+      "description": "Audit record of sent reminders, winner alerts, and monthly summaries",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string", "maxLength": 128 },
+        "groupName": { "type": "string", "maxLength": 120 },
+        "memberId": { "type": "string", "maxLength": 128 },
+        "memberName": { "type": "string", "maxLength": 100 },
+        "recipientEmail": { "type": "string", "maxLength": 150 },
+        "type": { "type": "string", "enum": ["winner", "draw_result", "payment_reminder", "monthly_summary", "test"] },
+        "roundNumber": { "type": "number" },
+        "monthKey": { "type": "string", "maxLength": 15 },
+        "sentAt": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["queued", "sent", "failed"] }
+      },
+      "required": ["groupId", "recipientEmail", "type", "sentAt"]
+    },
+    "HistoryEntry": {
+      "title": "HistoryEntry",
+      "description": "Append-only audit record of swaps, corrections, and decisions",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["swap", "correction", "decision", "draw"] },
+        "reason": { "type": "string", "maxLength": 500 },
+        "author": { "type": "string", "maxLength": 100 },
+        "timestamp": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["type", "reason", "author", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Individual user accounts with settings"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/EqubGroup" },
+      "description": "Root equb groups"
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/GroupMember" },
+      "description": "Members belonging to an equb group"
+    },
+    "/groups/{groupId}/rounds/{roundId}": {
+      "schema": { "$ref": "#/entities/Round" },
+      "description": "Rounds within an equb group"
+    },
+    "/groups/{groupId}/rounds/{roundId}/payments/{memberId}": {
+      "schema": { "$ref": "#/entities/PaymentStatus" },
+      "description": "Payment status for each member in a round"
+    },
+    "/groups/{groupId}/rounds/{roundId}/inputs/{uid}": {
+      "schema": { "$ref": "#/entities/MemberDrawInput" },
+      "description": "Entropy submitted by members for a round draw"
+    },
+    "/groups/{groupId}/draws/{drawId}": {
+      "schema": { "$ref": "#/entities/DrawRecord" },
+      "description": "Immutable draw proof records"
+    },
+    "/groups/{groupId}/history/{entryId}": {
+      "schema": { "$ref": "#/entities/HistoryEntry" },
+      "description": "Append-only audit log entries"
+    },
+    "/public_draws/{drawCode}": {
+      "schema": { "$ref": "#/entities/PublicDraw" },
+      "description": "Public verification proofs lookup by 6-char draw code"
+    },
+    "/mail/{mailId}": {
+      "schema": { "$ref": "#/entities/MailMessage" },
+      "description": "Trigger Email extension mail queue"
+    },
+    "/notificationLog/{logId}": {
+      "schema": { "$ref": "#/entities/NotificationLogEntry" },
+      "description": "Log of all sent notifications to prevent duplicates"
+    }
+  }
+}

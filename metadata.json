@@ -1,0 +1,6 @@
+{
+  "name": "Equb Draw",
+  "description": "Fair-lottery and ledger tool for Ethiopian Equb rotating savings groups with provable cryptographic draws and transparent tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

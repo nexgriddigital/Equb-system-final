@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  /* Body and UI font stack: Figtree (Latin) + Noto Sans Ethiopic (Amharic) */
+  --font-body: 'Figtree', 'Noto Sans Ethiopic', system-ui, -apple-system, sans-serif;
+  /* Headings, Winner, and Big Birr amounts: Fraunces (Latin) + Noto Serif Ethiopic (Amharic) */
+  --font-heading: 'Fraunces', 'Noto Serif Ethiopic', Georgia, serif;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  background-color: #fafaf9; /* warm off-white (stone-50) */
+  color: #1c1917; /* stone-900 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Amharic specific typography: line-height >= 1.6 */
+[lang="am"], .font-amharic {
+  font-family: 'Noto Sans Ethiopic', 'Figtree', system-ui, sans-serif;
+  line-height: 1.65;
+}
+
+/* Headings & Big Amounts typography */
+.font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.015em;
+}
+
+[lang="am"] .font-heading, .font-heading-amharic {
+  font-family: 'Noto Serif Ethiopic', 'Fraunces', Georgia, serif;
+  line-height: 1.4;
+}
+
+/* Tabular figures for money alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ensure no text is smaller than 14px per design constitution */
+.text-min-14 {
+  font-size: 14px;
+}
+
+/* Minimum 48px touch targets */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Mobile safe area padding */
+.pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.25);
+  border-radius: 9999px;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
