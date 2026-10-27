@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, signOut, deleteUser } from 'firebase/auth';
-import { auth, updateUserLanguage, db } from '../services/firebase';
+import { User, signOut, deleteUser, reauthenticateWithPopup } from 'firebase/auth';
+import { auth, updateUserLanguage, db, googleProvider, deleteUserAccount } from '../services/firebase';
 import { doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { Language, EqubGroup, NotificationLog } from '../types/equb';
 import { translations } from '../i18n/translations';
@@ -19,7 +19,10 @@ import {
   Mail,
   Send,
   Info,
-  Clock
+  Clock,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -44,6 +47,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Email notifications preferences
@@ -162,28 +168,82 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const isPasswordUser = user.providerData.some(p => p.providerId === 'password');
+  const isGoogleUser = user.providerData.some(p => p.providerId === 'google.com');
+
+  const handleDeleteWithPassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!deletePassword) {
+      setDeleteError(lang === 'am' ? 'እባክዎ የይለፍ ቃልዎን ያስገቡ' : 'Please enter your password');
+      return;
+    }
     setIsDeleting(true);
-    setError(null);
+    setDeleteError(null);
+    try {
+      const result = await deleteUserAccount(user, deletePassword);
+      if (!result.success) {
+        if (result.error === 'wrong-password') {
+          setDeleteError(t.deleteAccountWrongPassword);
+        } else {
+          setDeleteError(result.error || (lang === 'am' ? 'መለያውን መሰረዝ አልተቻለም' : 'Failed to delete account'));
+        }
+        setIsDeleting(false);
+      }
+    } catch (err: any) {
+      setDeleteError(err?.message || (lang === 'am' ? 'ስህተት አጋጥሟል' : 'Error deleting account'));
+      setIsDeleting(false);
+    }
+  };
+
+  const handleGoogleReauthAndDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
       try {
-        await deleteDoc(doc(db, 'users', user.uid));
-      } catch (err) {
-        console.warn('Could not delete user doc', err);
+        await reauthenticateWithPopup(user, googleProvider);
+      } catch (popupErr: any) {
+        if (popupErr?.code === 'auth/popup-closed-by-user') {
+          setIsDeleting(false);
+          return;
+        }
+        if (popupErr?.code === 'auth/popup-blocked') {
+          setDeleteError(
+            lang === 'am'
+              ? 'የብሮውዘር ፖፕአፕ ተዘግቷል። እባክዎ Popups ፈቅደው እንደገና ይሞክሩ።'
+              : 'Popup blocked by browser. Please allow popups and try again.'
+          );
+          setIsDeleting(false);
+          return;
+        }
+        throw popupErr;
       }
-      await deleteUser(user);
+      const result = await deleteUserAccount(user);
+      if (!result.success) {
+        setDeleteError(result.error || (lang === 'am' ? 'መለያውን መሰረዝ አልተቻለም' : 'Failed to delete account'));
+        setIsDeleting(false);
+      }
     } catch (err: any) {
-      if (err?.code === 'auth/requires-recent-login') {
-        setError(
-          lang === 'am'
-            ? 'እባክዎ ደህንነትዎን ለማረጋገጥ መጀመሪያ ወጥተው እንደገና ይግቡ'
-            : 'Please log in again before deleting your account.'
-        );
-      } else {
-        setError(err?.message || 'Failed to delete account');
-      }
+      setDeleteError(err?.message || (lang === 'am' ? 'ስህተት አጋጥሟል' : 'Error deleting account'));
       setIsDeleting(false);
-      setDeleteConfirmOpen(false);
+    }
+  };
+
+  const handleDeleteDirect = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteUserAccount(user);
+      if (!result.success) {
+        if (result.error === 'requires-recent-login') {
+          setDeleteError(t.deleteAccountReauthRequired);
+        } else {
+          setDeleteError(result.error || (lang === 'am' ? 'መለያውን መሰረዝ አልተቻለም' : 'Failed to delete account'));
+        }
+        setIsDeleting(false);
+      }
+    } catch (err: any) {
+      setDeleteError(err?.message || (lang === 'am' ? 'ስህተት አጋጥሟል' : 'Error deleting account'));
+      setIsDeleting(false);
     }
   };
 
@@ -469,34 +529,142 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {!deleteConfirmOpen ? (
             <button
               type="button"
-              onClick={() => setDeleteConfirmOpen(true)}
-              className="w-full text-center py-2 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
+              onClick={() => {
+                setDeleteConfirmOpen(true);
+                setDeleteError(null);
+                setDeletePassword('');
+              }}
+              className="w-full text-center py-2 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors touch-target"
             >
               {t.deleteAccountBtn}
             </button>
           ) : (
             <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-3">
-              <p className="text-xs text-red-900 font-medium">
-                {t.deleteAccountConfirm}
-              </p>
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmOpen(false)}
-                  className="px-3 py-1.5 bg-white text-stone-700 text-xs font-semibold rounded-xl border border-stone-200 touch-target"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteAccount}
-                  disabled={isDeleting}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl touch-target flex items-center gap-1"
-                >
-                  {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{t.deleteAccountBtn}</span>
-                </button>
+              <div className="flex items-start gap-2.5">
+                <Trash2 className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-900">
+                    {t.deleteAccountConfirm}
+                  </p>
+                  <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">
+                    {t.deleteAccountWarning}
+                  </p>
+                </div>
               </div>
+
+              {deleteError && (
+                <div className="p-2.5 bg-red-100 border border-red-300 rounded-xl text-xs text-red-900 flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-700 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {isPasswordUser ? (
+                <form onSubmit={handleDeleteWithPassword} className="space-y-2.5 pt-1">
+                  <label className="text-[11px] font-bold text-stone-700 block">
+                    {t.deleteAccountPasswordPrompt}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showDeletePassword ? 'text' : 'password'}
+                      value={deletePassword}
+                      onChange={e => {
+                        setDeletePassword(e.target.value);
+                        setDeleteError(null);
+                      }}
+                      placeholder={lang === 'am' ? 'የይለፍ ቃልዎን ያስገቡ' : 'Enter your password'}
+                      className="w-full pl-3 pr-10 py-2.5 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                      aria-label="Toggle password visibility"
+                    >
+                      {showDeletePassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteConfirmOpen(false);
+                        setDeletePassword('');
+                        setDeleteError(null);
+                      }}
+                      disabled={isDeleting}
+                      className="px-3 py-2 bg-white text-stone-700 text-xs font-semibold rounded-xl border border-stone-200 touch-target"
+                    >
+                      {t.cancel}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isDeleting || !deletePassword.trim()}
+                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl touch-target flex items-center gap-1.5 shadow-xs"
+                    >
+                      {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>{t.deleteAccountConfirmBtn}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : isGoogleUser ? (
+                <div className="space-y-2.5 pt-1">
+                  <p className="text-xs text-stone-600">
+                    {t.deleteAccountGooglePrompt}
+                  </p>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteConfirmOpen(false);
+                        setDeleteError(null);
+                      }}
+                      disabled={isDeleting}
+                      className="px-3 py-2 bg-white text-stone-700 text-xs font-semibold rounded-xl border border-stone-200 touch-target"
+                    >
+                      {t.cancel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGoogleReauthAndDelete}
+                      disabled={isDeleting}
+                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl touch-target flex items-center gap-1.5 shadow-xs"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>{t.deleteAccountVerifyGoogleBtn}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmOpen(false);
+                      setDeleteError(null);
+                    }}
+                    disabled={isDeleting}
+                    className="px-3 py-2 bg-white text-stone-700 text-xs font-semibold rounded-xl border border-stone-200 touch-target"
+                  >
+                    {t.cancel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteDirect}
+                    disabled={isDeleting}
+                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl touch-target flex items-center gap-1.5 shadow-xs"
+                  >
+                    {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{t.deleteAccountConfirmBtn}</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

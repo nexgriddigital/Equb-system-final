@@ -2,12 +2,15 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   GoogleAuthProvider,
+  EmailAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
   deleteUser,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   updateProfile,
   onAuthStateChanged,
   User
@@ -615,3 +618,78 @@ export async function deleteGroupDocument(groupId: string) {
     handleFirestoreError(err, OperationType.DELETE, `groups/${groupId}`);
   }
 }
+
+export interface DeleteAccountResult {
+  success: boolean;
+  error?: string;
+  requiresPassword?: boolean;
+  requiresGoogle?: boolean;
+}
+
+/**
+ * Permanently deletes a user's account, user profile document,
+ * any groups they organize, and signs them out.
+ * Supports re-authentication for password and Google providers.
+ */
+export async function deleteUserAccount(
+  user: User,
+  password?: string
+): Promise<DeleteAccountResult> {
+  const isPasswordUser = user.providerData.some(p => p.providerId === 'password');
+  const isGoogleUser = user.providerData.some(p => p.providerId === 'google.com');
+
+  // 1. Re-authenticate with password if provided
+  if (isPasswordUser && password) {
+    if (!user.email) {
+      return { success: false, error: 'missing-email' };
+    }
+    try {
+      const cred = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, cred);
+    } catch (reauthErr: any) {
+      if (reauthErr?.code === 'auth/wrong-password' || reauthErr?.code === 'auth/invalid-credential') {
+        return { success: false, error: 'wrong-password' };
+      }
+      return { success: false, error: reauthErr?.message || 'Authentication failed' };
+    }
+  }
+
+  // 2. Delete user profile document from Firestore
+  try {
+    await deleteDoc(doc(db, 'users', user.uid));
+  } catch (firestoreErr) {
+    console.warn('Could not delete user profile doc (non-fatal):', firestoreErr);
+  }
+
+  // 3. Clean up groups where this user is the organizer
+  try {
+    const q = query(collection(db, 'groups'), where('organizerUid', '==', user.uid));
+    const groupsSnap = await getDocs(q);
+    for (const gDoc of groupsSnap.docs) {
+      await deleteDoc(gDoc.ref).catch(() => {});
+    }
+  } catch (cleanErr) {
+    console.warn('Could not clean up organizer groups (non-fatal):', cleanErr);
+  }
+
+  // 4. Delete the Firebase Auth user
+  try {
+    await deleteUser(user);
+    try {
+      localStorage.removeItem('equb_groups_cache');
+    } catch {}
+    await signOut(auth).catch(() => {});
+    return { success: true };
+  } catch (deleteErr: any) {
+    if (deleteErr?.code === 'auth/requires-recent-login') {
+      return {
+        success: false,
+        requiresPassword: isPasswordUser,
+        requiresGoogle: isGoogleUser,
+        error: 'requires-recent-login'
+      };
+    }
+    return { success: false, error: deleteErr?.message || 'Failed to delete account' };
+  }
+}
+

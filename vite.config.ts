@@ -42,9 +42,7 @@ export default defineConfig(({ mode }) => {
       githubPagesSpaPlugin(),
     ],
     build: {
-      target: 'es2015',
       cssTarget: 'chrome60',
-      minify: 'terser',
       rollupOptions: {
         output: {
           manualChunks(id: string) {

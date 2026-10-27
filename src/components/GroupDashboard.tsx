@@ -10,8 +10,11 @@ import {
   isCycleComplete
 } from '../services/storage';
 import { PaymentsScreen } from './PaymentsScreen';
-import { HistoryScreen } from './HistoryScreen';
 import { RoundHealthChart } from './RoundHealthChart';
+
+const HistoryScreen = React.lazy(() =>
+  import('./HistoryScreen').then(m => ({ default: m.HistoryScreen }))
+);
 import {
   Coins,
   Calendar,
@@ -351,13 +354,15 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
 
       {/* Tab 3: History */}
       {activeTab === 'history' && (
-        <HistoryScreen
-          group={group}
-          lang={lang}
-          onCheckDraw={proof => onOpenProof({ drawProof: proof } as any)}
-          onOpenShare={item => onOpenShare(item)}
-          onAddAuditCorrection={onAddAuditCorrection}
-        />
+        <React.Suspense fallback={<div className="py-8 flex justify-center"><div className="w-5 h-5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin" /></div>}>
+          <HistoryScreen
+            group={group}
+            lang={lang}
+            onCheckDraw={proof => onOpenProof({ drawProof: proof } as any)}
+            onOpenShare={item => onOpenShare(item)}
+            onAddAuditCorrection={onAddAuditCorrection}
+          />
+        </React.Suspense>
       )}
     </div>
   );

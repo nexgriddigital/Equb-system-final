@@ -40,6 +40,12 @@ export interface TranslationDictionary {
   deleteAccountBtn: string;
   deleteAccountConfirm: string;
   deleteAccountWarning: string;
+  deleteAccountPasswordPrompt: string;
+  deleteAccountGooglePrompt: string;
+  deleteAccountWrongPassword: string;
+  deleteAccountReauthRequired: string;
+  deleteAccountVerifyGoogleBtn: string;
+  deleteAccountConfirmBtn: string;
   accountDeleted: string;
   settingsTitle: string;
   myAccount: string;
@@ -356,7 +362,13 @@ export const translations: Record<Language, TranslationDictionary> = {
     logoutBtn: 'Log Out',
     deleteAccountBtn: 'Delete My Account',
     deleteAccountConfirm: 'Are you sure you want to permanently delete your account? This action cannot be undone.',
-    deleteAccountWarning: 'Permanently deletes your account and removes your profile.',
+    deleteAccountWarning: 'Permanently deletes your account, your profile, and any Equb groups you organize.',
+    deleteAccountPasswordPrompt: 'Enter your password to confirm account deletion:',
+    deleteAccountGooglePrompt: 'You are signed in with Google. Please verify your Google account to confirm deletion.',
+    deleteAccountWrongPassword: 'Incorrect password. Account deletion cancelled.',
+    deleteAccountReauthRequired: 'Security check: please verify your identity before deleting your account.',
+    deleteAccountVerifyGoogleBtn: 'Verify with Google & Delete',
+    deleteAccountConfirmBtn: 'Permanently Delete Account',
     accountDeleted: 'Your account has been deleted.',
     settingsTitle: 'Settings',
     myAccount: 'My Account',
@@ -667,7 +679,13 @@ export const translations: Record<Language, TranslationDictionary> = {
     logoutBtn: 'ውጣ',
     deleteAccountBtn: 'መለያዬን ሰርዝ',
     deleteAccountConfirm: 'እርግጠኛ ነዎት መለያዎን በቋሚነት መሰረዝ ይፈልጋሉ? ይህ እርምጃ ሊመለስ አይችልም።',
-    deleteAccountWarning: 'መለያዎን እና የተመዘገቡ መረጃዎችን በቋሚነት ያጠፋል።',
+    deleteAccountWarning: 'መለያዎን፣ መረጃዎን እና እርስዎ ያቋቋሟቸውን የእቁብ ቡድኖች በቋሚነት ያጠፋል።',
+    deleteAccountPasswordPrompt: 'መለያዎ እንዲሰረዝ እባክዎ የይለፍ ቃልዎን ያስገቡ፡',
+    deleteAccountGooglePrompt: 'በGoogle ነው የገቡት። መለያዎ እንዲሰረዝ እባክዎ በGoogle ማንነትዎን ያረጋግጡ።',
+    deleteAccountWrongPassword: 'የተሳሳተ የይለፍ ቃል። መለያው አልተሰረዘም።',
+    deleteAccountReauthRequired: 'ለደህንነት ሲባል መለያዎን ከመሰረዝዎ በፊት ማንነትዎን ያረጋግጡ።',
+    deleteAccountVerifyGoogleBtn: 'በGoogle አረጋግጥ እና መለያውን ሰርዝ',
+    deleteAccountConfirmBtn: 'መለያዬን በቋሚነት ሰርዝ',
     accountDeleted: 'መለያዎ በተሳካ ሁኔታ ተሰርዟል።',
     settingsTitle: 'ቅንብሮች',
     myAccount: 'የእኔ መለያ',

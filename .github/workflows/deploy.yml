@@ -45,6 +45,7 @@ jobs:
         run: npm run build
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
