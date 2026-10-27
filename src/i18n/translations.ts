@@ -108,6 +108,14 @@ export interface TranslationDictionary {
   roundProgress: string;
   potSize: string;
   totalCollected: string;
+  outstanding: string;
+  groupHealth: string;
+  collectionProgress: string;
+  roundReadyForDraw: string;
+  pendingPaymentsWarning: string;
+  healthExcellent: string;
+  healthGood: string;
+  healthNeedsAttention: string;
   nextDraw: string;
   payoutOrder: string;
   status: string;
@@ -413,7 +421,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     currentRound: 'Current Round',
     roundProgress: 'Round Progress',
     potSize: 'Round Pot',
-    totalCollected: 'Collected So Far',
+    totalCollected: 'Total Collected',
+    outstanding: 'Outstanding',
+    groupHealth: 'Group Health',
+    collectionProgress: 'Collection Progress',
+    roundReadyForDraw: 'All payments collected! Ready for draw.',
+    pendingPaymentsWarning: 'payments pending before draw',
+    healthExcellent: '100% Collected · Ready for Draw',
+    healthGood: 'Good Progress · Few Payments Left',
+    healthNeedsAttention: 'Follow-up Needed · Payments Pending',
     nextDraw: 'Next Draw',
     payoutOrder: 'Payout History',
     status: 'Status',
@@ -717,6 +733,14 @@ export const translations: Record<Language, TranslationDictionary> = {
     roundProgress: 'የዙር ሂደት',
     potSize: 'የዙሩ ጠቅላላ ድምር',
     totalCollected: 'እስካሁን የተሰበሰበ',
+    outstanding: 'ያልተሰበሰበ (ቀሪ)',
+    groupHealth: 'የእቁቡ ጤናማነት',
+    collectionProgress: 'የክፍያ አሰባሰብ ሂደት',
+    roundReadyForDraw: 'ሁሉም ክፍያዎች ተሰብስበዋል! ዕጣ ለማውጣት ዝግጁ ነው።',
+    pendingPaymentsWarning: 'ያልተጠናቀቁ ክፍያዎች ይቀራሉ',
+    healthExcellent: '100% ተሰብስቧል · ለዕጣ ዝግጁ ነው',
+    healthGood: 'ጥሩ ሂደት · ጥቂት ክፍያዎች ይቀራሉ',
+    healthNeedsAttention: 'ክትትል ያስፈልጋል · ያልከፈሉ አባላት አሉ',
     nextDraw: 'ቀጣይ ዕጣ',
     payoutOrder: 'የዕጣ አወጣጥ ቅደም ተከተል',
     status: 'ሁኔታ',

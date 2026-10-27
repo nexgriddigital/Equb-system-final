@@ -25,19 +25,28 @@ import { HomeScreen } from './components/HomeScreen';
 import { GroupDashboard } from './components/GroupDashboard';
 import { GroupForm } from './components/GroupForm';
 import { DrawRoom } from './components/DrawRoom';
-import { CheckDrawScreen } from './components/CheckDrawScreen';
 import { ShareModal } from './components/ShareModal';
 import { BackupModal } from './components/BackupModal';
 import { AuthScreen } from './components/AuthScreen';
 import { LanguageChoiceModal } from './components/LanguageChoiceModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { BottomTabBar, MainTab } from './components/BottomTabBar';
-import { SettingsScreen } from './components/SettingsScreen';
 import { OfflineBanner } from './components/OfflineBanner';
-import { HistoryScreen } from './components/HistoryScreen';
 import { PublicUnsubscribeScreen } from './components/PublicUnsubscribeScreen';
 import { Logo } from './components/Logo';
-import { Loader2, Coins } from 'lucide-react';
+import { Loader2, Coins, AlertCircle } from 'lucide-react';
+import { initNativeApp, registerBackButtonHandler, exitNativeApp } from './services/native';
+
+// Lazy-load heavier screens to keep initial JS bundle under 300KB for low-memory devices (1GB RAM)
+const CheckDrawScreen = React.lazy(() =>
+  import('./components/CheckDrawScreen').then(m => ({ default: m.CheckDrawScreen }))
+);
+const HistoryScreen = React.lazy(() =>
+  import('./components/HistoryScreen').then(m => ({ default: m.HistoryScreen }))
+);
+const SettingsScreen = React.lazy(() =>
+  import('./components/SettingsScreen').then(m => ({ default: m.SettingsScreen }))
+);
 
 export default function App() {
   // Language & First Launch
@@ -85,6 +94,51 @@ export default function App() {
   // URL Public Routes (?check=CODE or ?unsub=1&gid=...&mid=...)
   const [publicCheckCode, setPublicCheckCode] = useState<string | null>(null);
   const [publicUnsub, setPublicUnsub] = useState<{ gid: string; mid: string } | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // Initialize Capacitor native plugins (StatusBar, SplashScreen) & Hardware Back Button
+  useEffect(() => {
+    initNativeApp();
+
+    const cleanupBack = registerBackButtonHandler(() => {
+      // 1. If Exit confirmation is already visible, dismiss it
+      if (showExitConfirm) {
+        setShowExitConfirm(false);
+        return;
+      }
+      // 2. Close active modals if open
+      if (isJoinCodeOpen) {
+        setIsJoinCodeOpen(false);
+        return;
+      }
+      if (isBackupOpen) {
+        setIsBackupOpen(false);
+        return;
+      }
+      if (shareModalData.isOpen) {
+        setShareModalData({ isOpen: false });
+        return;
+      }
+      // 3. If on a sub-screen (Draw Room, Group Form, Check Draw), return to main
+      if (currentScreen !== 'main') {
+        setCurrentScreen('main');
+        setActiveCheckProof(null);
+        setCheckDrawInitialCode('');
+        return;
+      }
+      // 4. If on main screen but not on 'groups' tab, return to 'groups' tab
+      if (activeTab !== 'groups') {
+        setActiveTab('groups');
+        return;
+      }
+      // 5. On the groups home screen: ask "Exit Equb Draw?" before closing
+      setShowExitConfirm(true);
+    });
+
+    return () => {
+      cleanupBack();
+    };
+  }, [showExitConfirm, isJoinCodeOpen, isBackupOpen, shareModalData.isOpen, currentScreen, activeTab]);
 
   useEffect(() => {
     try {
@@ -491,16 +545,18 @@ export default function App() {
         )}
 
         {currentScreen === 'check_draw' && (
-          <CheckDrawScreen
-            initialCode={checkDrawInitialCode}
-            initialProof={activeCheckProof}
-            lang={lang}
-            onBack={() => {
-              setCurrentScreen('main');
-              setActiveCheckProof(null);
-              setCheckDrawInitialCode('');
-            }}
-          />
+          <React.Suspense fallback={<div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#0E3B2E]" /></div>}>
+            <CheckDrawScreen
+              initialCode={checkDrawInitialCode}
+              initialProof={activeCheckProof}
+              lang={lang}
+              onBack={() => {
+                setCurrentScreen('main');
+                setActiveCheckProof(null);
+                setCheckDrawInitialCode('');
+              }}
+            />
+          </React.Suspense>
         )}
 
         {/* Tab 1: Groups Tab */}
@@ -543,7 +599,7 @@ export default function App() {
               onAddAuditCorrection={() => {}}
             />
           ) : (
-            <div className="py-12 px-4 text-center space-y-3 max-w-[560px] mx-auto">
+            <div className="py-12 px-4 text-center space-y-3 max-w-[560px] md:max-w-[720px] mx-auto">
               <Coins className="w-10 h-10 text-stone-300 mx-auto" />
               <p className="text-sm font-semibold text-stone-700">
                 {t.noActiveGroupSelected}
@@ -561,21 +617,23 @@ export default function App() {
         {/* Tab 3: History Tab */}
         {currentScreen === 'main' && activeTab === 'history' && (
           selectedGroup ? (
-            <div className="py-4 px-3 sm:px-4 max-w-[560px] mx-auto">
-              <HistoryScreen
-                group={selectedGroup}
-                lang={lang}
-                onCheckDraw={proof => {
-                  setActiveCheckProof(proof);
-                  setCheckDrawInitialCode(proof.drawCode || '');
-                  setCurrentScreen('check_draw');
-                }}
-                onOpenShare={item => setShareModalData({ isOpen: true, historyItem: item || null })}
-                onAddAuditCorrection={() => {}}
-              />
+            <div className="py-4 px-3 sm:px-4 max-w-[560px] md:max-w-[720px] mx-auto">
+              <React.Suspense fallback={<div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#0E3B2E]" /></div>}>
+                <HistoryScreen
+                  group={selectedGroup}
+                  lang={lang}
+                  onCheckDraw={proof => {
+                    setActiveCheckProof(proof);
+                    setCheckDrawInitialCode(proof.drawCode || '');
+                    setCurrentScreen('check_draw');
+                  }}
+                  onOpenShare={item => setShareModalData({ isOpen: true, historyItem: item || null })}
+                  onAddAuditCorrection={() => {}}
+                />
+              </React.Suspense>
             </div>
           ) : (
-            <div className="py-12 px-4 text-center space-y-3 max-w-[560px] mx-auto">
+            <div className="py-12 px-4 text-center space-y-3 max-w-[560px] md:max-w-[720px] mx-auto">
               <p className="text-sm text-stone-500">{t.noActiveGroupSelected}</p>
             </div>
           )
@@ -583,18 +641,22 @@ export default function App() {
 
         {/* Tab 4: Settings Tab */}
         {currentScreen === 'main' && activeTab === 'settings' && (
-          <SettingsScreen
-            user={user}
-            lang={lang}
-            activeGroup={selectedGroup}
-            onLanguageChange={handleSelectLanguage}
-            onOpenCheckDraw={() => {
-              setActiveCheckProof(null);
-              setCheckDrawInitialCode('');
-              setCurrentScreen('check_draw');
-            }}
-            onOpenBackup={() => setIsBackupOpen(true)}
-          />
+          <div className="max-w-[560px] md:max-w-[720px] mx-auto">
+            <React.Suspense fallback={<div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#0E3B2E]" /></div>}>
+              <SettingsScreen
+                user={user}
+                lang={lang}
+                activeGroup={selectedGroup}
+                onLanguageChange={handleSelectLanguage}
+                onOpenCheckDraw={() => {
+                  setActiveCheckProof(null);
+                  setCheckDrawInitialCode('');
+                  setCurrentScreen('check_draw');
+                }}
+                onOpenBackup={() => setIsBackupOpen(true)}
+              />
+            </React.Suspense>
+          </div>
         )}
       </main>
 
@@ -643,6 +705,45 @@ export default function App() {
           setGroups(storageService.getAll());
         }}
       />
+
+      {/* Android Hardware Back Button Exit Confirmation */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
+          <div className="bg-white border border-stone-200 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-50 rounded-2xl text-amber-700 shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-stone-900 font-heading">
+                  {lang === 'am' ? 'ከእቁብ መተግበሪያ መውጣት ይፈልጋሉ?' : 'Exit Equb Draw?'}
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {lang === 'am'
+                    ? 'መተግበሪያውን ለመዝጋት "ውጣ" የሚለውን ይጫኑ።'
+                    : 'Are you sure you want to exit the app?'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-2xl font-bold text-xs min-h-[48px] touch-target transition-colors"
+              >
+                {lang === 'am' ? 'ተመለስ' : 'Stay'}
+              </button>
+              <button
+                type="button"
+                onClick={() => exitNativeApp()}
+                className="flex-1 py-3 px-4 bg-[#0E3B2E] hover:bg-[#07241C] text-[#FFF1CC] rounded-2xl font-bold text-xs min-h-[48px] touch-target shadow-xs transition-colors"
+              >
+                {lang === 'am' ? 'ውጣ' : 'Exit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

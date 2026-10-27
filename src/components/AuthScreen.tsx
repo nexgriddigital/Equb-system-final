@@ -11,6 +11,7 @@ import { Language } from '../types/equb';
 import { translations } from '../i18n/translations';
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Logo } from './Logo';
+import { isNativePlatform } from '../services/native';
 
 interface AuthScreenProps {
   lang: Language;
@@ -21,6 +22,7 @@ type AuthMode = 'signin' | 'signup' | 'forgot_password';
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ lang, onSuccess }) => {
   const t = translations[lang];
+  const isNative = isNativePlatform();
 
   const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
@@ -135,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ lang, onSuccess }) => {
               <div className="leading-relaxed font-medium">{error}</div>
             </div>
 
-            {isOperationNotAllowed && (
+            {isOperationNotAllowed && !isNative && (
               <div className="pt-2 border-t border-red-200/80 space-y-2">
                 <p className="text-[11px] text-stone-600">
                   {lang === 'am'
@@ -274,8 +276,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ lang, onSuccess }) => {
           </button>
         </form>
 
-        {/* Continue with Google */}
-        {mode !== 'forgot_password' && (
+        {/* Continue with Google (Hidden in Android APK WebView) */}
+        {!isNative && mode !== 'forgot_password' && (
           <div className="space-y-4 pt-1">
             <div className="relative flex items-center justify-center">
               <div className="border-t border-stone-200 w-full" />

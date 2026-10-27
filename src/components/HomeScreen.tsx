@@ -48,7 +48,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <div className="py-4 px-3 sm:px-4 max-w-[560px] mx-auto space-y-5 pb-24">
+    <div className="py-4 px-3 sm:px-4 max-w-[560px] md:max-w-[720px] mx-auto space-y-5 pb-24">
       {/* Notice Banner */}
       <NoticeBanner lang={lang} expanded />
 

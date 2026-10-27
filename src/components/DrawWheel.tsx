@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { EligibleTicket } from '../types/equb';
 import confetti from 'canvas-confetti';
+import { isLowEndDevice } from '../services/native';
 
 interface DrawWheelProps {
   tickets: EligibleTicket[];
@@ -34,6 +35,9 @@ export const DrawWheel: React.FC<DrawWheelProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const total = Math.max(1, tickets.length);
   const arcSize = (2 * Math.PI) / total;
+
+  const isLowEnd = isLowEndDevice();
+  const spinDuration = isLowEnd ? 1200 : 3500;
 
   // Check prefers-reduced-motion
   const prefersReducedMotion =
@@ -126,27 +130,30 @@ export const DrawWheel: React.FC<DrawWheelProps> = ({
       // Pointer is at top (270 degrees)
       const sectorCenterDeg = (winningIndex * (360 / total)) + (180 / total);
       const targetDeg = 270 - sectorCenterDeg;
-      const fullRotations = 360 * 5;
+      // Low-end devices do 2 rotations for speed and low CPU; standard devices do 5
+      const fullRotations = 360 * (isLowEnd ? 2 : 5);
       const targetRotation = rotation + fullRotations + ((targetDeg - (rotation % 360) + 360) % 360);
 
       setRotation(targetRotation);
 
       const timer = setTimeout(() => {
         onSpinComplete();
-        try {
-          confetti({
-            particleCount: 65,
-            spread: 60,
-            origin: { y: 0.6 }
-          });
-        } catch {
-          // ignore
+        if (!isLowEnd) {
+          try {
+            confetti({
+              particleCount: 50,
+              spread: 55,
+              origin: { y: 0.6 }
+            });
+          } catch {
+            // ignore
+          }
         }
-      }, 3500);
+      }, spinDuration);
 
       return () => clearTimeout(timer);
     }
-  }, [isSpinning, winningIndex, prefersReducedMotion]);
+  }, [isSpinning, winningIndex, prefersReducedMotion, isLowEnd, spinDuration]);
 
   return (
     <div className="relative flex flex-col items-center justify-center p-2">
@@ -156,10 +163,13 @@ export const DrawWheel: React.FC<DrawWheelProps> = ({
         <div className="w-2.5 h-2.5 rounded-full bg-amber-400 -mt-1 shadow-sm" />
       </div>
 
-      {/* Rotating Wheel Container */}
+      {/* Rotating Wheel Container (pure transform and opacity) */}
       <div
-        className="w-68 h-68 sm:w-80 sm:h-80 rounded-full shadow-lg relative overflow-hidden transition-transform duration-[3500ms] ease-[cubic-bezier(0.12,0.8,0.2,1)]"
-        style={{ transform: `rotate(${rotation}deg)` }}
+        className="w-68 h-68 sm:w-80 sm:h-80 rounded-full shadow-lg relative overflow-hidden will-change-transform"
+        style={{
+          transform: `rotate(${rotation}deg)`,
+          transition: `transform ${spinDuration}ms cubic-bezier(0.12, 0.8, 0.2, 1)`,
+        }}
       >
         <canvas
           ref={canvasRef}

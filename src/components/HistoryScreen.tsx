@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EqubGroup, RoundHistory, Language, AuditCorrection, DrawProof } from '../types/equb';
 import { translations, formatETB, formatDate } from '../i18n/translations';
+import { shareDrawLink } from '../services/native';
 import {
   CheckCircle2,
   Share2,
@@ -11,7 +12,8 @@ import {
   ArrowLeftRight,
   ShieldCheck,
   Check,
-  Copy
+  Copy,
+  ChevronDown
 } from 'lucide-react';
 
 interface HistoryScreenProps {
@@ -31,6 +33,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 }) => {
   const t = translations[lang];
 
+  // Pagination for low-memory devices (20 per page)
+  const [visibleCount, setVisibleCount] = useState(20);
   const [activeCorrectionRound, setActiveCorrectionRound] = useState<number | null>(null);
   const [authorName, setAuthorName] = useState('');
   const [reason, setReason] = useState('');
@@ -55,19 +59,18 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     setReason('');
   };
 
-  const handleShareDraw = (item: RoundHistory) => {
+  const handleShareDraw = async (item: RoundHistory) => {
     const code = item.drawProof?.drawCode || item.drawCode || 'EQ74AB';
     const link = `${window.location.origin}?check=${code}`;
 
-    if (navigator.share) {
-      navigator.share({
-        title: `${group.name} - Round ${item.roundNumber} Draw`,
-        text: `${group.name} Round ${item.roundNumber} Winner: ${item.winnerMemberName}. Check this draw with code ${code}:`,
-        url: link
-      }).catch(() => {
-        setShareDrawCode(code);
-      });
-    } else {
+    const res = await shareDrawLink({
+      title: `${group.name} - Round ${item.roundNumber} Draw`,
+      text: `${group.name} Round ${item.roundNumber} Winner: ${item.winnerMemberName}. Check this draw with code ${code}:`,
+      url: link,
+      dialogTitle: `${group.name} Draw Proof`,
+    });
+
+    if (res === 'copied') {
       setShareDrawCode(code);
     }
   };
@@ -113,7 +116,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         </div>
       ) : (
         <div className="space-y-3.5">
-          {group.history.map(item => {
+          {group.history.slice(0, visibleCount).map(item => {
             const drawCode = item.drawProof?.drawCode || item.drawCode || 'EQ74AB';
 
             return (
@@ -273,6 +276,22 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               </div>
             );
           })}
+
+          {group.history.length > visibleCount && (
+            <div className="pt-2 text-center">
+              <button
+                onClick={() => setVisibleCount(c => c + 20)}
+                className="w-full py-3 px-4 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 text-stone-800 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 touch-target transition-colors"
+              >
+                <ChevronDown className="w-4 h-4" />
+                <span>
+                  {lang === 'am'
+                    ? `ተጨማሪ ዙሮችን አሳይ (${group.history.length - visibleCount} ይቀራሉ)`
+                    : `Load More Rounds (${group.history.length - visibleCount} remaining)`}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 

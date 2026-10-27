@@ -1,10 +1,30 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  /* Body and UI font stack: Figtree (Latin) + Noto Sans Ethiopic (Amharic) */
-  --font-body: 'Figtree', 'Noto Sans Ethiopic', system-ui, -apple-system, sans-serif;
-  /* Headings, Winner, and Big Birr amounts: Fraunces (Latin) + Noto Serif Ethiopic (Amharic) */
-  --font-heading: 'Fraunces', 'Noto Serif Ethiopic', Georgia, serif;
+  /* Body and UI font stack: System first + Ethiopic system fallbacks for guaranteed offline rendering */
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans Ethiopic", "Abyssinica SIL", "Nyala", system-ui, sans-serif;
+  /* Headings: serif system font stack + Ethiopic serif fallbacks */
+  --font-heading: "Noto Serif Ethiopic", "Abyssinica SIL", Georgia, "Times New Roman", serif;
+  
+  --brand-green: #0E3B2E;
+  --brand-green-dark: #07241C;
+  --brand-gold: #F2B705;
+  --brand-cream: #FFF1CC;
+}
+
+/* Base element styles with static fallbacks for older Android 6.0 WebViews */
+html {
+  min-height: 100vh;
+  background-color: #fafaf9;
+  -webkit-text-size-adjust: 100%;
+}
+
+@supports (min-height: 100dvh) {
+  html {
+    min-height: 100dvh;
+  }
 }
 
 body {
@@ -13,12 +33,37 @@ body {
   line-height: 1.5;
   background-color: #fafaf9; /* warm off-white (stone-50) */
   color: #1c1917; /* stone-900 */
-  padding-bottom: env(safe-area-inset-bottom);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  /* Safe area fallback */
+  padding-bottom: 0px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+@supports (min-height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
 }
 
 /* Amharic specific typography: line-height >= 1.6 */
 [lang="am"], .font-amharic {
-  font-family: 'Noto Sans Ethiopic', 'Figtree', system-ui, sans-serif;
+  font-family: "Noto Sans Ethiopic", "Abyssinica SIL", "Nyala", -apple-system, system-ui, sans-serif;
   line-height: 1.65;
 }
 
@@ -29,7 +74,7 @@ body {
 }
 
 [lang="am"] .font-heading, .font-heading-amharic {
-  font-family: 'Noto Serif Ethiopic', 'Fraunces', Georgia, serif;
+  font-family: "Noto Serif Ethiopic", "Abyssinica SIL", Georgia, serif;
   line-height: 1.4;
 }
 
@@ -43,15 +88,21 @@ body {
   font-size: 14px;
 }
 
-/* Minimum 48px touch targets */
+/* Minimum 48px touch targets for mobile accessibility */
 .touch-target {
   min-height: 48px;
   min-width: 48px;
 }
 
-/* Mobile safe area padding */
+/* Mobile safe area padding with legacy fallbacks */
 .pb-safe {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-bottom: 16px;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: 0px;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Custom scrollbars */

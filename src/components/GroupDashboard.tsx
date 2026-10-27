@@ -11,6 +11,7 @@ import {
 } from '../services/storage';
 import { PaymentsScreen } from './PaymentsScreen';
 import { HistoryScreen } from './HistoryScreen';
+import { RoundHealthChart } from './RoundHealthChart';
 import {
   Coins,
   Calendar,
@@ -82,7 +83,7 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
   };
 
   return (
-    <div className="py-4 px-3 sm:px-4 max-w-[560px] mx-auto space-y-4 pb-24">
+    <div className="py-4 px-3 sm:px-4 max-w-[560px] md:max-w-[720px] mx-auto space-y-4 pb-24">
       {/* Top Navigation */}
       <div className="flex items-center justify-between gap-2">
         <button
@@ -240,6 +241,13 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Visual Chart: Collected vs. Outstanding Payments (Recharts) */}
+      <RoundHealthChart
+        group={group}
+        lang={lang}
+        onGoToPayments={() => setActiveTab('payments')}
+      />
 
       {/* Segmented Navigation Tabs */}
       <div className="flex items-center gap-1 p-1 bg-stone-200/80 rounded-2xl">

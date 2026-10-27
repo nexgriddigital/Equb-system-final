@@ -13,6 +13,9 @@ import {
   User
 } from 'firebase/auth';
 import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
   getFirestore,
   doc,
   getDoc,
@@ -39,7 +42,21 @@ import {
 } from '../types/equb';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firestore with 10MB local cache limit for low-RAM Android devices (1GB RAM)
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentSingleTabManager({}),
+      cacheSizeBytes: 10 * 1024 * 1024, // 10 MB limit to prevent OOM
+    }),
+  }, firebaseConfig.firestoreDatabaseId);
+} catch {
+  dbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+}
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
