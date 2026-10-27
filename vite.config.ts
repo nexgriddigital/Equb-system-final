@@ -43,10 +43,15 @@ export default defineConfig(({ mode }) => {
     ],
     build: {
       cssTarget: 'chrome60',
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           manualChunks(id: string) {
-            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/react-is')
+            ) {
               return 'vendor-react';
             }
             if (id.includes('node_modules/firebase')) {
