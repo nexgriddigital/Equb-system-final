@@ -31,7 +31,10 @@ import {
   Copy,
   Check,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  Search,
+  X,
+  Phone
 } from 'lucide-react';
 
 interface GroupDashboardProps {
@@ -68,6 +71,17 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
   const t = translations[lang];
   const [activeTab, setActiveTab] = useState<DashboardTab>('roster');
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  const cleanMemberQuery = memberSearchQuery.trim().toLowerCase();
+  const digitsMemberQuery = memberSearchQuery.replace(/\D/g, '');
+  const filteredRosterMembers = group.members.filter(m => {
+    if (!cleanMemberQuery) return true;
+    const nameMatch = m.name.toLowerCase().includes(cleanMemberQuery);
+    const phoneDigits = (m.phone || '').replace(/\D/g, '');
+    const phoneMatch = Boolean(digitsMemberQuery && phoneDigits.includes(digitsMemberQuery));
+    return nameMatch || phoneMatch;
+  });
 
   const totalShares = getTotalShares(group);
   const potAmount = getPotAmount(group);
@@ -290,53 +304,127 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
 
       {/* Tab 1: Member Roster (Stacked Mobile Cards) */}
       {activeTab === 'roster' && (
-        <div className="bg-white border border-stone-200 rounded-2xl p-2 sm:p-3 shadow-xs space-y-2">
-          {group.members.map((member, index) => {
-            const wins = getMemberWinCount(group, member.id);
-            const remaining = getMemberRemainingShares(group, member);
-            const isPaid = !!roundPayments[member.id];
-
-            return (
-              <div
-                key={member.id}
-                className="p-3 bg-stone-50 border border-stone-100 rounded-xl flex items-center justify-between gap-3 text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-stone-200 text-stone-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    {index + 1}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-stone-900">
-                        {member.name}
-                      </span>
-                      {member.shares === 2 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber-100 text-amber-900 rounded">
-                          2x
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-stone-500 mt-0.5">
-                      {t.winsRatio}: {wins}/{member.shares} · {remaining} {t.remainingShares}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Paid badge */}
-                <span
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 ${
-                    isPaid
-                      ? 'bg-emerald-100 text-emerald-900'
-                      : 'bg-stone-200/80 text-stone-600'
-                  }`}
+        <div className="space-y-3">
+          {/* Member Search Bar */}
+          <div className="space-y-1.5">
+            <div className="relative">
+              <input
+                type="text"
+                value={memberSearchQuery}
+                onChange={e => setMemberSearchQuery(e.target.value)}
+                placeholder={t.searchMembersPlaceholder}
+                className="w-full pl-10 pr-9 py-2.5 bg-white border border-stone-200 rounded-2xl text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0E3B2E]/30 focus:border-[#0E3B2E] transition-all shadow-2xs"
+              />
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {memberSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 rounded-full"
+                  aria-label="Clear search"
                 >
-                  {isPaid ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> : <XCircle className="w-3.5 h-3.5 text-stone-400" />}
-                  <span>{isPaid ? t.paid : t.unpaid}</span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {memberSearchQuery && (
+              <div className="flex items-center justify-between px-1 text-[11px] text-stone-500">
+                <span>
+                  {lang === 'am'
+                    ? `የተገኙ አባላት፡ ${filteredRosterMembers.length} ከ ${group.members.length}`
+                    : `Showing ${filteredRosterMembers.length} of ${group.members.length} members`}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="text-amber-800 hover:text-amber-950 font-semibold"
+                >
+                  {t.clearFilter}
+                </button>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Members list */}
+          <div className="bg-white border border-stone-200 rounded-2xl p-2 sm:p-3 shadow-xs space-y-2">
+            {filteredRosterMembers.length === 0 ? (
+              <div className="p-6 text-center space-y-2">
+                <Search className="w-6 h-6 text-stone-300 mx-auto" />
+                <p className="text-sm font-semibold text-stone-700">
+                  {t.noMatchingMembers}
+                </p>
+                <p className="text-xs text-stone-400 font-mono">
+                  "{memberSearchQuery}"
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="mt-2 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold"
+                >
+                  {t.clearFilter}
+                </button>
+              </div>
+            ) : (
+              filteredRosterMembers.map((member, index) => {
+                const wins = getMemberWinCount(group, member.id);
+                const remaining = getMemberRemainingShares(group, member);
+                const isPaid = !!roundPayments[member.id];
+
+                return (
+                  <div
+                    key={member.id}
+                    className="p-3 bg-stone-50 border border-stone-100 rounded-xl flex items-center justify-between gap-3 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-stone-200 text-stone-700 font-bold text-xs flex items-center justify-center shrink-0">
+                        {index + 1}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-bold text-stone-900">
+                            {member.name}
+                          </span>
+                          {member.shares === 2 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber-100 text-amber-900 rounded">
+                              2x
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-stone-500 flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span>
+                            {t.winsRatio}: {wins}/{member.shares} · {remaining} {t.remainingShares}
+                          </span>
+                          {member.phone && (
+                            <>
+                              <span>·</span>
+                              <span className="font-mono text-[11px] text-stone-600 bg-stone-100 px-1 rounded flex items-center gap-0.5">
+                                <Phone className="w-2.5 h-2.5 text-stone-400" />
+                                {member.phone}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Paid badge */}
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 ${
+                        isPaid
+                          ? 'bg-emerald-100 text-emerald-900'
+                          : 'bg-stone-200/80 text-stone-600'
+                      }`}
+                    >
+                      {isPaid ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> : <XCircle className="w-3.5 h-3.5 text-stone-400" />}
+                      <span>{isPaid ? t.paid : t.unpaid}</span>
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
 
@@ -349,6 +437,8 @@ export const GroupDashboard: React.FC<GroupDashboardProps> = ({
           onTogglePayment={onTogglePayment}
           onMarkAll={onMarkAllPayments}
           onGoToDraw={onGoToDrawRoom}
+          searchQuery={memberSearchQuery}
+          onSearchChange={setMemberSearchQuery}
         />
       )}
 

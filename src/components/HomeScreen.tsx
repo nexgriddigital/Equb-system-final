@@ -14,7 +14,9 @@ import {
   Check,
   CheckCircle2,
   Sparkles,
-  Share2
+  Share2,
+  Search,
+  X
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -39,6 +41,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const t = translations[lang];
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+  const digitsOnlyQuery = searchQuery.replace(/\D/g, '');
+
+  const filteredGroups = groups.filter(group => {
+    if (!cleanQuery) return true;
+
+    // 1. Match group name
+    if (group.name.toLowerCase().includes(cleanQuery)) return true;
+
+    // 2. Match invite code
+    if (group.inviteCode && group.inviteCode.toLowerCase().includes(cleanQuery)) return true;
+
+    // 3. Match member name or phone
+    return group.members.some(member => {
+      const nameMatch = member.name.toLowerCase().includes(cleanQuery);
+      const phoneDigits = (member.phone || '').replace(/\D/g, '');
+      const phoneMatch = Boolean(digitsOnlyQuery && phoneDigits.includes(digitsOnlyQuery));
+      return nameMatch || phoneMatch;
+    });
+  });
 
   const handleCopyInvite = (e: React.MouseEvent, inviteCode: string) => {
     e.stopPropagation();
@@ -133,21 +157,89 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </div>
       ) : (
-        /* Groups List */
+        /* Groups List with Search */
         <div className="space-y-3.5">
-          {groups.map(group => {
-            const totalShares = getTotalShares(group);
-            const pot = getPotAmount(group);
-            const cycleCompleted = isCycleComplete(group);
-            const paidCount = getPaidMemberCount(group, group.currentRound);
-            const isOrganizer = (group as any).organizerUid === user.uid;
+          {/* Search Bar */}
+          <div className="space-y-1.5">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={t.searchGroupsPlaceholder}
+                className="w-full pl-10 pr-9 py-2.5 bg-white border border-stone-200 rounded-2xl text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0E3B2E]/30 focus:border-[#0E3B2E] transition-all shadow-2xs"
+              />
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 rounded-full"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <div className="flex items-center justify-between px-1 text-[11px] text-stone-500">
+                <span>
+                  {lang === 'am'
+                    ? `የተገኙ እቁቦች፡ ${filteredGroups.length} ከ ${groups.length}`
+                    : `Showing ${filteredGroups.length} of ${groups.length} groups`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-amber-800 hover:text-amber-950 font-semibold"
+                >
+                  {t.clearFilter}
+                </button>
+              </div>
+            )}
+          </div>
 
-            return (
-              <div
-                key={group.id}
-                onClick={() => onSelectGroup(group)}
-                className="group cursor-pointer bg-white border border-stone-200 hover:border-emerald-600/70 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all space-y-3"
+          {filteredGroups.length === 0 ? (
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center space-y-2">
+              <Search className="w-8 h-8 text-stone-300 mx-auto" />
+              <p className="text-sm font-semibold text-stone-700">
+                {t.noMatchingGroups}
+              </p>
+              <p className="text-xs text-stone-400 font-mono">
+                "{searchQuery}"
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-2 px-3.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold touch-target"
               >
+                {t.clearFilter}
+              </button>
+            </div>
+          ) : (
+            filteredGroups.map(group => {
+              const totalShares = getTotalShares(group);
+              const pot = getPotAmount(group);
+              const cycleCompleted = isCycleComplete(group);
+              const paidCount = getPaidMemberCount(group, group.currentRound);
+              const isOrganizer = (group as any).organizerUid === user.uid;
+
+              // Find matching members if query exists
+              const matchedMembers = cleanQuery
+                ? group.members.filter(m => {
+                    const nMatch = m.name.toLowerCase().includes(cleanQuery);
+                    const pDigits = (m.phone || '').replace(/\D/g, '');
+                    const pMatch = Boolean(digitsOnlyQuery && pDigits.includes(digitsOnlyQuery));
+                    return nMatch || pMatch;
+                  })
+                : [];
+
+              return (
+                <div
+                  key={group.id}
+                  onClick={() => onSelectGroup(group)}
+                  className="group cursor-pointer bg-white border border-stone-200 hover:border-emerald-600/70 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all space-y-3"
+                >
                 {/* Top: Metadata & Role Tag */}
                 <div className="flex items-center justify-between text-xs text-stone-500">
                   <span className="font-medium text-stone-600">
@@ -188,6 +280,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </span>
                   )}
                 </div>
+
+                {/* Matching members preview if search query matched a member */}
+                {matchedMembers.length > 0 && !group.name.toLowerCase().includes(cleanQuery) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-amber-800 font-semibold uppercase">
+                      {lang === 'am' ? 'የተገኘ አባል፡' : 'Matched member:'}
+                    </span>
+                    {matchedMembers.slice(0, 3).map(m => (
+                      <span
+                        key={m.id}
+                        className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-md text-[11px] font-medium"
+                      >
+                        {m.name} {m.phone ? `(${m.phone})` : ''}
+                      </span>
+                    ))}
+                    {matchedMembers.length > 3 && (
+                      <span className="text-[10px] text-stone-400">
+                        +{matchedMembers.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Summary Metrics */}
                 <div className="grid grid-cols-2 gap-2 bg-stone-50 p-2.5 rounded-xl">
@@ -245,7 +359,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       )}
     </div>

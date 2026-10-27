@@ -71,6 +71,11 @@ export interface TranslationDictionary {
   home: string;
   groups: string;
   myGroups: string;
+  searchGroupsPlaceholder: string;
+  searchMembersPlaceholder: string;
+  noMatchingMembers: string;
+  noMatchingGroups: string;
+  clearFilter: string;
   createGroupBtn: string; // "+ Create a group"
   editGroup: string;
   deleteGroup: string;
@@ -391,6 +396,11 @@ export const translations: Record<Language, TranslationDictionary> = {
     home: 'Home',
     groups: 'Equb Groups',
     myGroups: 'My Groups',
+    searchGroupsPlaceholder: 'Search groups, members, or phone...',
+    searchMembersPlaceholder: 'Filter members by name or phone...',
+    noMatchingMembers: 'No members match your search.',
+    noMatchingGroups: 'No groups match your search.',
+    clearFilter: 'Clear',
     createGroupBtn: '+ Create a group',
     editGroup: 'Edit Equb',
     deleteGroup: 'Delete Equb',
@@ -708,6 +718,11 @@ export const translations: Record<Language, TranslationDictionary> = {
     home: 'ዋና ገጽ',
     groups: 'የእቁብ ቡድኖች',
     myGroups: 'የእኔ እቁቦች',
+    searchGroupsPlaceholder: 'እቁብ፣ አባላት ወይም ስልክ ፈልግ...',
+    searchMembersPlaceholder: 'አባላትን በስም ወይም በስልክ ፈልግ...',
+    noMatchingMembers: 'የተፈለገው አባል አልተገኘም።',
+    noMatchingGroups: 'የተፈለገው እቁብ አልተገኘም።',
+    clearFilter: 'አጽዳ',
     createGroupBtn: '+ አዲስ እቁብ ፍጠር',
     editGroup: 'እቁብ አድስ',
     deleteGroup: 'እቁብ ሰርዝ',
