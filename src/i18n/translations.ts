@@ -326,6 +326,21 @@ export interface TranslationDictionary {
   exportData: string;
   importData: string;
   navCurrentRound: string;
+
+  // Cross-device Firebase sync
+  syncStatusSynced: string;
+  syncStatusSyncing: string;
+  syncStatusOffline: string;
+  syncStatusError: string;
+  syncNow: string;
+  crossDeviceSyncTitle: string;
+  crossDeviceSyncDesc: string;
+  syncLocalToCloud: string;
+  syncLocalSuccess: string;
+  connectedToFirebase: string;
+  syncDetails: string;
+  lastSynced: string;
+  justNow: string;
 }
 
 export const translations: Record<Language, TranslationDictionary> = {
@@ -649,7 +664,22 @@ export const translations: Record<Language, TranslationDictionary> = {
     backupRestore: 'Save / Restore Data',
     exportData: 'Save a copy of my data',
     importData: 'Restore my data',
-    navCurrentRound: 'This round'
+    navCurrentRound: 'This round',
+
+    // Cross-device Firebase sync
+    syncStatusSynced: 'Synced with Firebase',
+    syncStatusSyncing: 'Syncing across devices...',
+    syncStatusOffline: 'Offline (saved locally)',
+    syncStatusError: 'Sync error',
+    syncNow: 'Sync Now',
+    crossDeviceSyncTitle: 'Cross-Device Sync (Google Firebase)',
+    crossDeviceSyncDesc: 'All your Equb groups, members, payments, and draws stay synchronized in real time across your phone, tablet, and computer via Google Firebase.',
+    syncLocalToCloud: 'Upload Local Groups to Cloud',
+    syncLocalSuccess: 'Successfully synced local groups to your Firebase account',
+    connectedToFirebase: 'Connected to Google Firebase',
+    syncDetails: 'Sync Details',
+    lastSynced: 'Last synced',
+    justNow: 'Just now'
   },
   am: {
     appName: 'እቁብ ዕጣ',
@@ -971,7 +1001,22 @@ export const translations: Record<Language, TranslationDictionary> = {
     backupRestore: 'መረጃ አስቀምጥ / መልስ',
     exportData: 'የመረጃዬን ቅጂ አስቀምጥ',
     importData: 'መረጃዬን መልስ',
-    navCurrentRound: 'ይህ ዙር'
+    navCurrentRound: 'ይህ ዙር',
+
+    // Cross-device Firebase sync
+    syncStatusSynced: 'ከፋየርቤዝ ጋር ተመሳስሏል',
+    syncStatusSyncing: 'በመሳሪያዎች መካከል እየተመሳሰለ ነው...',
+    syncStatusOffline: 'ከመስመር ውጭ (በመሳሪያው ላይ ተቀምጧል)',
+    syncStatusError: 'የማመሳሰል ስህተት',
+    syncNow: 'አሁን አመሳስል',
+    crossDeviceSyncTitle: 'በመሳሪያዎች መካከል ማመሳሰል (Google Firebase)',
+    crossDeviceSyncDesc: 'ሁሉም የዕቁብ ቡድኖችዎ፣ አባላት፣ ክፍያዎች እና ዕጣዎች በስልክዎ፣ ታብሌትዎ እና ኮምፒውተርዎ ላይ በGoogle Firebase አማካኝነት በእውነተኛ ጊዜ ይመሳሰላሉ።',
+    syncLocalToCloud: 'የመሳሪያውን ዕቁቦች ወደ ክላውድ ይላኩ',
+    syncLocalSuccess: 'የመሳሪያው ዕቁቦች ወደ ፋየርቤዝ መለያዎ በተሳካ ሁኔታ ተመሳስለዋል',
+    connectedToFirebase: 'ከGoogle Firebase ጋር ተገናኝቷል',
+    syncDetails: 'የማመሳሰል ዝርዝሮች',
+    lastSynced: 'ለመጨረሻ ጊዜ የተመሳሰለው',
+    justNow: 'አሁን'
   }
 };
 

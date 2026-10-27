@@ -355,8 +355,72 @@ export async function setMemberPaymentStatus(
       markedBy: organizerUid,
       markedAt: new Date().toISOString()
     });
+
+    // Touch group updatedAt so all connected devices' groups listener triggers immediately
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: new Date().toISOString()
+    }).catch(e => console.warn('Non-fatal touch error:', e));
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function markAllPaymentsInFirestore(
+  groupId: string,
+  roundNumber: number,
+  memberIds: string[],
+  paid: boolean,
+  organizerUid: string
+) {
+  try {
+    await Promise.all(
+      memberIds.map(memberId => {
+        const path = `groups/${groupId}/rounds/${roundNumber}/payments/${memberId}`;
+        return setDoc(doc(db, path), {
+          paid,
+          markedBy: organizerUid,
+          markedAt: new Date().toISOString()
+        });
+      })
+    );
+
+    // Touch group updatedAt so other devices immediately reflect all payments
+    await updateDoc(doc(db, 'groups', groupId), {
+      updatedAt: new Date().toISOString()
+    }).catch(() => {});
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}/rounds/${roundNumber}/payments`);
+  }
+}
+
+export async function syncLocalGroupsToCloud(
+  user: User,
+  localGroups: EqubGroup[]
+): Promise<{ count: number; error?: string }> {
+  try {
+    let synced = 0;
+    for (const g of localGroups) {
+      if (g.id.startsWith('local_') || g.id.startsWith('demo_')) {
+        await createFirestoreGroup(
+          g.name,
+          g.contributionAmount,
+          g.interval,
+          g.startDate,
+          g.members.map(m => ({
+            name: m.name,
+            shares: m.shares,
+            phone: m.phone,
+            email: m.email
+          })),
+          user,
+          g.emailNotifications
+        );
+        synced++;
+      }
+    }
+    return { count: synced };
+  } catch (e: any) {
+    return { count: 0, error: e?.message || 'Sync failed' };
   }
 }
 

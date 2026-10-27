@@ -14,8 +14,11 @@ import {
   syncUserProfile,
   getUserLanguage,
   setMemberPaymentStatus,
+  markAllPaymentsInFirestore,
+  syncLocalGroupsToCloud,
   deleteGroupDocument
 } from './services/firebase';
+import { SyncState } from './components/CloudSyncBadge';
 import { collection, query, where, onSnapshot, doc, getDocs } from 'firebase/firestore';
 import { storageService } from './services/storage';
 import { EqubGroup, Language, DrawProof, RoundHistory, AuditCorrection, Interval, Member } from './types/equb';
@@ -80,6 +83,10 @@ export default function App() {
   // Groups and selection
   const [groups, setGroups] = useState<EqubGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+  // Cross-device Firebase sync state
+  const [syncState, setSyncState] = useState<SyncState>('synced');
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   // Modals & Check Draw State
   const [isJoinCodeOpen, setIsJoinCodeOpen] = useState(false);
@@ -179,6 +186,29 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // 1b. Online / offline status tracking for sync state
+  useEffect(() => {
+    const handleOnline = () => {
+      if (user) {
+        setSyncState('syncing');
+        testConnection().then(() => {
+          setSyncState('synced');
+          setLastSyncedAt(new Date());
+        });
+      } else {
+        setSyncState('local_only');
+      }
+    };
+    const handleOffline = () => setSyncState('offline');
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [user]);
+
   // 2. Real-time Firestore sync for Groups when signed in
   useEffect(() => {
     if (!user) {
@@ -187,98 +217,222 @@ export default function App() {
       if (localGroups.length > 0 && !selectedGroupId) {
         setSelectedGroupId(localGroups[0].id);
       }
+      setSyncState('local_only');
       return;
     }
 
+    setSyncState('syncing');
     const groupsRef = collection(db, 'groups');
-    const unsub = onSnapshot(groupsRef, async snapshot => {
-      const fetchedGroups: EqubGroup[] = [];
-
-      for (const groupDoc of snapshot.docs) {
-        const data = groupDoc.data();
-        const groupId = groupDoc.id;
-
+    const unsub = onSnapshot(
+      groupsRef,
+      async snapshot => {
         try {
-          const membersSnap = await getDocs(collection(db, `groups/${groupId}/members`));
-          const members: Member[] = [];
-          let userIsMember = data.organizerUid === user.uid;
+          const fetchedGroups: EqubGroup[] = [];
 
-          membersSnap.forEach(mDoc => {
-            const mData = mDoc.data();
-            if (mData.uid === user.uid) userIsMember = true;
-            members.push({
-              id: mDoc.id,
-              name: mData.displayName || 'Member',
-              shares: mData.shares || 1,
-              phone: mData.phone || undefined,
-              email: mData.email || undefined,
-              notificationPreferences: mData.notificationPreferences || undefined,
-              joinedAt: mData.joinedAt || new Date().toISOString()
-            });
-          });
+          for (const groupDoc of snapshot.docs) {
+            const data = groupDoc.data();
+            const groupId = groupDoc.id;
 
-          if (!userIsMember) continue;
+            try {
+              const membersSnap = await getDocs(collection(db, `groups/${groupId}/members`));
+              const members: Member[] = [];
+              let userIsMember = data.organizerUid === user.uid;
 
-          // Fetch payments for current round
-          const currentRound = data.currentRound || 1;
-          const paymentsSnap = await getDocs(collection(db, `groups/${groupId}/rounds/${currentRound}/payments`));
-          const currentRoundPayments: Record<string, boolean> = {};
-          paymentsSnap.forEach(pDoc => {
-            currentRoundPayments[pDoc.id] = !!pDoc.data().paid;
-          });
+              membersSnap.forEach(mDoc => {
+                const mData = mDoc.data();
+                if (mData.uid === user.uid) userIsMember = true;
+                members.push({
+                  id: mDoc.id,
+                  name: mData.displayName || 'Member',
+                  shares: mData.shares || 1,
+                  phone: mData.phone || undefined,
+                  email: mData.email || undefined,
+                  notificationPreferences: mData.notificationPreferences || undefined,
+                  joinedAt: mData.joinedAt || new Date().toISOString()
+                });
+              });
 
-          // Fetch history
-          const historySnap = await getDocs(collection(db, `groups/${groupId}/history`));
-          const history: RoundHistory[] = [];
-          historySnap.forEach(hDoc => {
-            const hData = hDoc.data();
-            history.push({
-              roundNumber: hData.roundNumber || 1,
-              drawCode: hData.drawCode || undefined,
-              date: hData.timestamp || new Date().toISOString(),
-              winnerMemberId: hData.winnerMemberId || '',
-              winnerMemberName: hData.winnerMemberName || '',
-              potAmount: hData.potAmount || 0,
-              method: hData.method || 'lottery',
-              drawProof: hData.drawProof || undefined,
-              note: hData.reason
-            });
-          });
+              if (!userIsMember) continue;
 
-          // Sort history by round number
-          history.sort((a, b) => a.roundNumber - b.roundNumber);
+              // Fetch payments for current round
+              const currentRound = data.currentRound || 1;
+              const paymentsSnap = await getDocs(collection(db, `groups/${groupId}/rounds/${currentRound}/payments`));
+              const currentRoundPayments: Record<string, boolean> = {};
+              paymentsSnap.forEach(pDoc => {
+                currentRoundPayments[pDoc.id] = !!pDoc.data().paid;
+              });
 
-          fetchedGroups.push({
-            id: groupId,
-            name: data.name || 'Equb',
-            contributionAmount: data.contributionAmount || 2000,
-            interval: data.interval || 'monthly',
-            startDate: data.startDate || new Date().toISOString().split('T')[0],
-            members,
-            currentRound,
-            payments: {
-              [currentRound]: currentRoundPayments
-            },
-            history,
-            status: data.status || 'active',
-            emailNotifications: data.emailNotifications || undefined,
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: data.updatedAt || new Date().toISOString(),
-            ...data
-          } as any);
-        } catch (e) {
-          console.warn('Error reading subcollections for group', groupId, e);
+              // Fetch history
+              const historySnap = await getDocs(collection(db, `groups/${groupId}/history`));
+              const history: RoundHistory[] = [];
+              historySnap.forEach(hDoc => {
+                const hData = hDoc.data();
+                history.push({
+                  roundNumber: hData.roundNumber || 1,
+                  drawCode: hData.drawCode || undefined,
+                  date: hData.timestamp || new Date().toISOString(),
+                  winnerMemberId: hData.winnerMemberId || '',
+                  winnerMemberName: hData.winnerMemberName || '',
+                  potAmount: hData.potAmount || 0,
+                  method: hData.method || 'lottery',
+                  drawProof: hData.drawProof || undefined,
+                  note: hData.reason
+                });
+              });
+
+              // Sort history by round number
+              history.sort((a, b) => a.roundNumber - b.roundNumber);
+
+              fetchedGroups.push({
+                id: groupId,
+                name: data.name || 'Equb',
+                contributionAmount: data.contributionAmount || 2000,
+                interval: data.interval || 'monthly',
+                startDate: data.startDate || new Date().toISOString().split('T')[0],
+                members,
+                currentRound,
+                payments: {
+                  [currentRound]: currentRoundPayments
+                },
+                history,
+                status: data.status || 'active',
+                emailNotifications: data.emailNotifications || undefined,
+                createdAt: data.createdAt || new Date().toISOString(),
+                updatedAt: data.updatedAt || new Date().toISOString(),
+                ...data
+              } as any);
+            } catch (e) {
+              console.warn('Error reading subcollections for group', groupId, e);
+            }
+          }
+
+          setGroups(fetchedGroups);
+          setLastSyncedAt(new Date());
+          setSyncState(navigator.onLine ? 'synced' : 'offline');
+
+          if (fetchedGroups.length > 0 && !selectedGroupId) {
+            setSelectedGroupId(fetchedGroups[0].id);
+          }
+        } catch (err) {
+          console.error('Groups sync error:', err);
+          setSyncState(navigator.onLine ? 'error' : 'offline');
         }
+      },
+      error => {
+        console.error('Snapshot listener error:', error);
+        setSyncState(navigator.onLine ? 'error' : 'offline');
       }
-
-      setGroups(fetchedGroups);
-      if (fetchedGroups.length > 0 && !selectedGroupId) {
-        setSelectedGroupId(fetchedGroups[0].id);
-      }
-    });
+    );
 
     return () => unsub();
   }, [user]);
+
+  // 3. Real-time subcollection listeners for active group (instant cross-device payments & member changes)
+  const selectedGroup = groups.find(g => g.id === selectedGroupId) || groups[0] || null;
+
+  useEffect(() => {
+    if (!user || !selectedGroup || !selectedGroupId) return;
+
+    const round = selectedGroup.currentRound;
+    const paymentsPath = `groups/${selectedGroupId}/rounds/${round}/payments`;
+    const membersPath = `groups/${selectedGroupId}/members`;
+    const historyPath = `groups/${selectedGroupId}/history`;
+
+    // 1. Instant cross-device payments sync
+    const unsubPayments = onSnapshot(
+      collection(db, paymentsPath),
+      snapshot => {
+        const updatedRoundPayments: Record<string, boolean> = {};
+        snapshot.forEach(docSnap => {
+          updatedRoundPayments[docSnap.id] = !!docSnap.data().paid;
+        });
+
+        setGroups(prev =>
+          prev.map(g => {
+            if (g.id !== selectedGroupId) return g;
+            return {
+              ...g,
+              payments: {
+                ...g.payments,
+                [round]: updatedRoundPayments
+              }
+            };
+          })
+        );
+        setLastSyncedAt(new Date());
+      },
+      err => console.warn('Payments sync warning:', err.message)
+    );
+
+    // 2. Instant cross-device members sync
+    const unsubMembers = onSnapshot(
+      collection(db, membersPath),
+      snapshot => {
+        const membersList: Member[] = [];
+        snapshot.forEach(mDoc => {
+          const mData = mDoc.data();
+          membersList.push({
+            id: mDoc.id,
+            name: mData.displayName || 'Member',
+            shares: mData.shares || 1,
+            phone: mData.phone || undefined,
+            email: mData.email || undefined,
+            notificationPreferences: mData.notificationPreferences || undefined,
+            joinedAt: mData.joinedAt || new Date().toISOString()
+          });
+        });
+
+        if (membersList.length > 0) {
+          setGroups(prev =>
+            prev.map(g => {
+              if (g.id !== selectedGroupId) return g;
+              return { ...g, members: membersList };
+            })
+          );
+          setLastSyncedAt(new Date());
+        }
+      },
+      err => console.warn('Members sync warning:', err.message)
+    );
+
+    // 3. Instant cross-device history sync
+    const unsubHistory = onSnapshot(
+      collection(db, historyPath),
+      snapshot => {
+        const historyList: RoundHistory[] = [];
+        snapshot.forEach(hDoc => {
+          const hData = hDoc.data();
+          historyList.push({
+            roundNumber: hData.roundNumber || 1,
+            drawCode: hData.drawCode || undefined,
+            date: hData.timestamp || new Date().toISOString(),
+            winnerMemberId: hData.winnerMemberId || '',
+            winnerMemberName: hData.winnerMemberName || '',
+            potAmount: hData.potAmount || 0,
+            method: hData.method || 'lottery',
+            drawProof: hData.drawProof || undefined,
+            note: hData.reason
+          });
+        });
+        historyList.sort((a, b) => a.roundNumber - b.roundNumber);
+
+        setGroups(prev =>
+          prev.map(g => {
+            if (g.id !== selectedGroupId) return g;
+            return { ...g, history: historyList };
+          })
+        );
+        setLastSyncedAt(new Date());
+      },
+      err => console.warn('History sync warning:', err.message)
+    );
+
+    return () => {
+      unsubPayments();
+      unsubMembers();
+      unsubHistory();
+    };
+  }, [user, selectedGroupId, selectedGroup?.currentRound]);
 
   // Language selection handler
   const handleSelectLanguage = (selectedLang: Language) => {
@@ -296,7 +450,6 @@ export default function App() {
     }
   };
 
-  const selectedGroup = groups.find(g => g.id === selectedGroupId) || groups[0] || null;
   const isOrganizer = Boolean(user && selectedGroup && (selectedGroup as any).organizerUid === user.uid);
 
   // Group creation & editing handler
@@ -394,9 +547,131 @@ export default function App() {
 
   const handleMarkAllPayments = async (paid: boolean) => {
     if (!selectedGroup || !user) return;
-    for (const m of selectedGroup.members) {
-      await setMemberPaymentStatus(selectedGroup.id, selectedGroup.currentRound, m.id, paid, user.uid);
+    const memberIds = selectedGroup.members.map(m => m.id);
+
+    // Optimistic local state update
+    const updatedRoundPayments: Record<string, boolean> = {};
+    memberIds.forEach(id => {
+      updatedRoundPayments[id] = paid;
+    });
+
+    setGroups(prev =>
+      prev.map(g => {
+        if (g.id !== selectedGroup.id) return g;
+        return {
+          ...g,
+          payments: {
+            ...g.payments,
+            [g.currentRound]: updatedRoundPayments
+          }
+        };
+      })
+    );
+
+    // Multi-device sync to Firestore
+    await markAllPaymentsInFirestore(
+      selectedGroup.id,
+      selectedGroup.currentRound,
+      memberIds,
+      paid,
+      user.uid
+    );
+  };
+
+  // Manual trigger for cross-device sync
+  const handleSyncNow = async () => {
+    if (!user) return;
+    setSyncState('syncing');
+    try {
+      await testConnection();
+      const groupsSnap = await getDocs(collection(db, 'groups'));
+      const fetched: EqubGroup[] = [];
+      for (const gDoc of groupsSnap.docs) {
+        const data = gDoc.data();
+        const groupId = gDoc.id;
+
+        const membersSnap = await getDocs(collection(db, `groups/${groupId}/members`));
+        const members: Member[] = [];
+        let userIsMember = data.organizerUid === user.uid;
+
+        membersSnap.forEach(md => {
+          const mdData = md.data();
+          if (mdData.uid === user.uid) userIsMember = true;
+          members.push({
+            id: md.id,
+            name: mdData.displayName || 'Member',
+            shares: mdData.shares || 1,
+            phone: mdData.phone || undefined,
+            email: mdData.email || undefined,
+            notificationPreferences: mdData.notificationPreferences || undefined,
+            joinedAt: mdData.joinedAt || new Date().toISOString()
+          });
+        });
+
+        if (!userIsMember) continue;
+
+        const round = data.currentRound || 1;
+        const paymentsSnap = await getDocs(collection(db, `groups/${groupId}/rounds/${round}/payments`));
+        const currentRoundPayments: Record<string, boolean> = {};
+        paymentsSnap.forEach(p => {
+          currentRoundPayments[p.id] = !!p.data().paid;
+        });
+
+        const histSnap = await getDocs(collection(db, `groups/${groupId}/history`));
+        const hist: RoundHistory[] = [];
+        histSnap.forEach(h => {
+          const hData = h.data();
+          hist.push({
+            roundNumber: hData.roundNumber || 1,
+            drawCode: hData.drawCode || undefined,
+            date: hData.timestamp || new Date().toISOString(),
+            winnerMemberId: hData.winnerMemberId || '',
+            winnerMemberName: hData.winnerMemberName || '',
+            potAmount: hData.potAmount || 0,
+            method: hData.method || 'lottery',
+            drawProof: hData.drawProof || undefined,
+            note: hData.reason
+          });
+        });
+        hist.sort((a, b) => a.roundNumber - b.roundNumber);
+
+        fetched.push({
+          id: groupId,
+          name: data.name || 'Equb',
+          contributionAmount: data.contributionAmount || 2000,
+          interval: data.interval || 'monthly',
+          startDate: data.startDate || new Date().toISOString().split('T')[0],
+          members,
+          currentRound: round,
+          payments: { [round]: currentRoundPayments },
+          history: hist,
+          status: data.status || 'active',
+          emailNotifications: data.emailNotifications || undefined,
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString(),
+          ...data
+        } as any);
+      }
+      setGroups(fetched);
+      setLastSyncedAt(new Date());
+      setSyncState(navigator.onLine ? 'synced' : 'offline');
+    } catch (e) {
+      console.error('Manual sync failed:', e);
+      setSyncState(navigator.onLine ? 'error' : 'offline');
+      throw e;
     }
+  };
+
+  const handleSyncLocalToCloud = async () => {
+    if (!user) return;
+    setSyncState('syncing');
+    const local = storageService.getAll();
+    const res = await syncLocalGroupsToCloud(user, local);
+    if (res.error) {
+      setSyncState('error');
+      throw new Error(res.error);
+    }
+    await handleSyncNow();
   };
 
   const handleDeleteGroup = async (id: string) => {
@@ -499,7 +774,7 @@ export default function App() {
       {/* Offline Banner */}
       <OfflineBanner lang={lang} />
 
-      {/* Top Header: App Name & Language Switch ONLY */}
+      {/* Top Header: App Name, Cloud Sync Status & Language Switch */}
       <Header
         lang={lang}
         onLanguageChange={handleSelectLanguage}
@@ -507,6 +782,13 @@ export default function App() {
           setCurrentScreen('main');
           setActiveTab('groups');
         }}
+        user={user}
+        syncState={syncState}
+        lastSyncedAt={lastSyncedAt}
+        localGroupCount={storageService.getAll().filter(g => g.id.startsWith('local_') || g.id.startsWith('demo_')).length}
+        cloudGroupCount={groups.length}
+        onSyncNow={handleSyncNow}
+        onSyncLocalToCloud={handleSyncLocalToCloud}
       />
 
       {/* Main Body */}
@@ -654,6 +936,11 @@ export default function App() {
                   setCurrentScreen('check_draw');
                 }}
                 onOpenBackup={() => setIsBackupOpen(true)}
+                onSyncNow={handleSyncNow}
+                onSyncLocalToCloud={handleSyncLocalToCloud}
+                localGroupCount={storageService.getAll().filter(g => g.id.startsWith('local_') || g.id.startsWith('demo_')).length}
+                cloudGroupCount={groups.length}
+                lastSyncedAt={lastSyncedAt}
               />
             </React.Suspense>
           </div>

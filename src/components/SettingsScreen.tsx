@@ -22,7 +22,13 @@ import {
   Clock,
   Eye,
   EyeOff,
-  Lock
+  Lock,
+  Cloud,
+  CloudCheck,
+  RefreshCw,
+  Smartphone,
+  Laptop,
+  Tablet
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -33,6 +39,11 @@ interface SettingsScreenProps {
   onLanguageChange: (newLang: Language) => void;
   onOpenCheckDraw: () => void;
   onOpenBackup: () => void;
+  onSyncNow?: () => Promise<void>;
+  onSyncLocalToCloud?: () => Promise<void>;
+  localGroupCount?: number;
+  cloudGroupCount?: number;
+  lastSyncedAt?: Date | null;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -41,7 +52,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   activeGroup,
   onLanguageChange,
   onOpenCheckDraw,
-  onOpenBackup
+  onOpenBackup,
+  onSyncNow,
+  onSyncLocalToCloud,
+  localGroupCount = 0,
+  cloudGroupCount = 0,
+  lastSyncedAt = null
 }) => {
   const t = translations[lang];
 
@@ -51,6 +67,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   // Email notifications preferences
   const [emailEnabled, setEmailEnabled] = useState(true);
@@ -323,6 +341,136 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {lang === 'en' && <Check className="w-4 h-4 text-amber-800 stroke-[3]" />}
           </button>
         </div>
+      </div>
+
+      {/* Cross-Device Sync (Google Firebase) Section */}
+      <div className="bg-white border border-stone-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+              <Cloud className="w-5 h-5 text-emerald-800" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-stone-900 font-heading">
+                {t.crossDeviceSyncTitle}
+              </h2>
+              <span className="text-xs text-stone-500 block">
+                {t.connectedToFirebase}
+              </span>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-200">
+            <CloudCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{t.syncStatusSynced}</span>
+          </span>
+        </div>
+
+        <p className="text-xs text-stone-600 leading-relaxed">
+          {t.crossDeviceSyncDesc}
+        </p>
+
+        {/* Device Sync Matrix Diagram */}
+        <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 flex items-center justify-around text-center text-xs text-stone-600">
+          <div className="flex flex-col items-center gap-1">
+            <Smartphone className="w-5 h-5 text-emerald-700" />
+            <span className="text-[11px] font-semibold">Android Phone</span>
+          </div>
+          <span className="text-stone-300 font-bold">⇄</span>
+          <div className="flex flex-col items-center gap-1">
+            <Tablet className="w-5 h-5 text-emerald-700" />
+            <span className="text-[11px] font-semibold">Tablet</span>
+          </div>
+          <span className="text-stone-300 font-bold">⇄</span>
+          <div className="flex flex-col items-center gap-1">
+            <Laptop className="w-5 h-5 text-emerald-700" />
+            <span className="text-[11px] font-semibold">Web Browser</span>
+          </div>
+        </div>
+
+        {/* Sync Info Badges */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-100">
+            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+              {t.lastSynced}
+            </span>
+            <span className="font-semibold text-stone-900">
+              {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t.justNow}
+            </span>
+          </div>
+          <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-100">
+            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+              {lang === 'am' ? 'የክላውድ ዕቁቦች' : 'Cloud Equbs'}
+            </span>
+            <span className="font-bold text-emerald-800">
+              {cloudGroupCount} {lang === 'am' ? 'ቡድኖች' : 'active'}
+            </span>
+          </div>
+        </div>
+
+        {/* Local Unsynced Groups Alert */}
+        {localGroupCount > 0 && onSyncLocalToCloud && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+            <div className="flex items-center gap-2 text-amber-900 font-semibold text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                {lang === 'am'
+                  ? `${localGroupCount} ያልተመሳሰለ የመሳሪያ ዕቁብ አለ`
+                  : `${localGroupCount} local group(s) not yet synced to cloud`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setIsSyncing(true);
+                try {
+                  await onSyncLocalToCloud();
+                  setSyncFeedback(t.syncLocalSuccess);
+                } catch {
+                  setSyncFeedback(t.syncStatusError);
+                } finally {
+                  setIsSyncing(false);
+                  setTimeout(() => setSyncFeedback(null), 3000);
+                }
+              }}
+              disabled={isSyncing}
+              className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 text-xs font-bold rounded-xl transition-colors touch-target"
+            >
+              {t.syncLocalToCloud}
+            </button>
+          </div>
+        )}
+
+        {syncFeedback && (
+          <div className="p-2.5 bg-emerald-50 text-emerald-900 text-xs rounded-xl flex items-center gap-2 font-medium">
+            <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span>{syncFeedback}</span>
+          </div>
+        )}
+
+        {/* Sync Now button */}
+        {onSyncNow && (
+          <button
+            type="button"
+            onClick={async () => {
+              setIsSyncing(true);
+              setSyncFeedback(null);
+              try {
+                await onSyncNow();
+                setSyncFeedback(lang === 'am' ? 'ከፋየርቤዝ ጋር ተመሳስሏል' : 'Synced with Firebase');
+              } catch {
+                setSyncFeedback(lang === 'am' ? 'ማመሳሰል አልተሳካም' : 'Sync failed');
+              } finally {
+                setIsSyncing(false);
+                setTimeout(() => setSyncFeedback(null), 3000);
+              }
+            }}
+            disabled={isSyncing}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-stone-100 hover:bg-stone-200 text-stone-900 text-xs sm:text-sm font-bold rounded-xl transition-colors touch-target border border-stone-200"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{t.syncNow}</span>
+          </button>
+        )}
       </div>
 
       {/* Email Notifications Section */}
